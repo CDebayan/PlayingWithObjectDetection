@@ -25,53 +25,20 @@ import java.nio.channels.FileChannel
 
 
 class ObjectDetectTFLiteActivity : AppCompatActivity() {
+    private var resizedBitmap: Bitmap? = null
     private var detector: Classifier? = null
-    private val isQuantized = false
-
-    // input image dimensions for the Inception Model
-    private val DIM_IMG_SIZE_X = 300
-    private val DIM_IMG_SIZE_Y = 300
-    private val DIM_PIXEL_SIZE = 1
-
-    // int array to hold image data
-    private val intValues: IntArray = IntArray(DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y)
-
-
-    // presets for rgb conversion
-    private val IMAGE_MEAN = 127.5f
-    private val IMAGE_STD = 127.5f
-
-    // options for model interpreter
-    private val tfliteOptions = Interpreter.Options()
-
-    // tflite graph
-    private var tflite: Interpreter? = null
-
-    // holds all the possible labels for model
-    private var labelList: List<String>? = null
-
-    // holds the selected image data as bytes
-    private var imgData: ByteBuffer? = null
-
-    // holds the probabilities of each label for non-quantized graphs
-    private var labelProbArray: Array<FloatArray>? = null
-
-    // holds the probabilities of each label for quantized graphs
-    private var labelProbArrayB: Array<ByteArray>? = null
 
     private val binding: ActivityObjectDetectTFLiteBinding by lazy {
         ActivityObjectDetectTFLiteBinding.inflate(layoutInflater)
     }
     private var imageUri: Uri? = null
 
-    // input image dimensions for the Inception Model
-
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private val TF_OD_API_INPUT_SIZE = 300
     private val TF_OD_API_IS_QUANTIZED = true
-    private val TF_OD_API_MODEL_FILE = "tf/detect.tflite"
-    private val TF_OD_API_LABELS_FILE = "file:///android_asset/tf/labelmap.txt"
+    private var TF_OD_API_MODEL_FILE = "tf/ssd_mobilenet.tflite"
+    private var TF_OD_API_LABELS_FILE = "file:///android_asset/tf/labelmap.txt"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +46,18 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
 
         //initializeInterpreter(this)
         onClickListener()
+
+
+        if (intent.getStringExtra("type") == "tflite"){
+             TF_OD_API_MODEL_FILE = "tf/detect.tflite"
+             TF_OD_API_LABELS_FILE = "file:///android_asset/tf/labelmap.txt"
+        }else if (intent.getStringExtra("type") == "yolo"){
+             TF_OD_API_MODEL_FILE = "other/yolov2_tiny.tflite"
+             TF_OD_API_LABELS_FILE = "file:///android_asset/other/yolov2_tiny.txt"
+        }else if (intent.getStringExtra("type") == "ssd"){
+             TF_OD_API_MODEL_FILE = "other/ssd_mobilenet.tflite"
+             TF_OD_API_LABELS_FILE = "file:///android_asset/other/ssd_mobilenet.txt"
+        }
 
         detector = TFLiteObjectDetectionAPIModel.create(
             assets,
@@ -100,8 +79,6 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
 
         binding.detect.setOnClickListener {
             binding.textView.text = ""
-            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
-            val resizedBitmap = getResizedBitmap(bitmap,300)
             val recognitionList = detector?.recognizeImage(resizedBitmap)
             recognitionList?.let {
                 setRect(it)
@@ -159,149 +136,9 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 121) {
             imageUri = data?.data
-            binding.imageView.setImageURI(imageUri)
+            val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+            resizedBitmap = getResizedBitmap(bitmap,300)
+            binding.imageView.setImageBitmap(resizedBitmap)
         }
     }
-
-
-
-
-
-
-
-
-    private fun analyzeObjects() {
-       // val bitmap_orig = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
-
-        val bitmap_orig = (binding.imageView.drawable as BitmapDrawable).bitmap
-        // resize the bitmap to the required input size to the CNN
-        val bitmap: Bitmap = getResizedBitmap(bitmap_orig, DIM_IMG_SIZE_X, DIM_IMG_SIZE_Y)
-        // convert bitmap to byte array
-        // convert bitmap to byte array
-        convertBitmapToByteBuffer(bitmap)
-        // pass byte data to the graph
-        // pass byte data to the graph
-        if (isQuantized) {
-            tflite!!.run(imgData, labelProbArrayB)
-        } else {
-            try {
-                tflite!!.run(imgData, labelProbArray)
-            } catch (e: Exception) {
-                print(e)
-            }
-        }
-        // display the results
-        // display the results
-        printTopKLabels()
-    }
-
-    // print the top labels and respective confidences
-    private fun printTopKLabels() {
-        // add all results to priority queue
-        for (i in labelList!!.indices) {
-            print(i)
-        }
-    }
-
-    // resizes bitmap to given dimensions
-    fun getResizedBitmap(bm: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
-        val width = bm.width
-        val height = bm.height
-        val scaleWidth = newWidth.toFloat() / width
-        val scaleHeight = newHeight.toFloat() / height
-        val matrix = Matrix()
-        matrix.postScale(scaleWidth, scaleHeight)
-        return Bitmap.createBitmap(
-            bm, 0, 0, width, height, matrix, false
-        )
-    }
-
-
-
-    fun initializeInterpreter(activity: Activity) {
-
-        //initilize graph and labels
-        try {
-            tflite = Interpreter(loadModelFile(activity), tfliteOptions)
-            labelList = loadLabelList(activity)
-            // initialize byte array. The size depends if the input data needs to be quantized or not
-
-            // initialize byte array. The size depends if the input data needs to be quantized or not
-            imgData = if (isQuantized) {
-                ByteBuffer.allocateDirect(
-                    DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y * DIM_PIXEL_SIZE
-                )
-            } else {
-                ByteBuffer.allocateDirect(
-                    4 * DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y * DIM_PIXEL_SIZE
-                )
-            }
-
-            imgData?.order(ByteOrder.nativeOrder())
-
-            // initialize probabilities array. The datatypes that array holds depends if the input data needs to be quantized or not
-
-            // initialize probabilities array. The datatypes that array holds depends if the input data needs to be quantized or not
-            if (isQuantized) {
-                labelProbArrayB = Array(1) { ByteArray(labelList!!.size) }
-            } else {
-                labelProbArray = Array(1) { FloatArray(labelList!!.size) }
-            }
-        } catch (ex: Exception) {
-            ex.printStackTrace()
-        }
-    }
-
-    // loads tflite from file
-    private fun loadModelFile(activity: Activity): MappedByteBuffer {
-        val fileDescriptor: AssetFileDescriptor = activity.assets.openFd("tf/detect.tflite")
-        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = fileDescriptor.startOffset
-        val declaredLength = fileDescriptor.declaredLength
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-    }
-
-    // loads the labels from the label txt file in assets into a string array
-    @Throws(IOException::class)
-    private fun loadLabelList(activity: Activity): List<String>? {
-        val labelList: MutableList<String> = ArrayList()
-        val reader = BufferedReader(InputStreamReader(activity.assets.open("tf/labelmap.txt")))
-        var line: String?
-        while (reader.readLine().also { line = it } != null) {
-            line?.let {
-                labelList.add(it)
-            }
-        }
-        reader.close()
-        return labelList
-    }
-
-    // converts bitmap to byte array which is passed in the tflite graph
-    private fun convertBitmapToByteBuffer(bitmap: Bitmap) {
-        if (imgData == null) {
-            return
-        }
-        imgData?.rewind()
-        bitmap.getPixels(intValues, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-        // loop through all pixels
-        var pixel = 0
-        for (i in 0 until DIM_IMG_SIZE_X) {
-            for (j in 0 until DIM_IMG_SIZE_Y) {
-                val value = intValues[pixel++]
-                // get rgb values from intValues where each int holds the rgb values for a pixel.
-                // if quantized, convert each rgb value to a byte, otherwise to a float
-                if (isQuantized) {
-                    imgData?.put((value shr 16 and 0xFF).toByte())
-                    imgData?.put((value shr 8 and 0xFF).toByte())
-                    imgData?.put((value and 0xFF).toByte())
-                } else {
-                    imgData?.putFloat(((value shr 16 and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
-                    imgData?.putFloat(((value shr 8 and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
-                    imgData?.putFloat(((value and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
-                }
-            }
-        }
-    }
-
 }
