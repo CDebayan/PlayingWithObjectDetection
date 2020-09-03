@@ -35,7 +35,7 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
 
         localModel =
             LocalModel.Builder()
-                .setAssetFilePath("mlkit/mobilenet_v1_1.0_224_quant.tflite")
+                .setAssetFilePath("mlkit/object_detection_mobile.tflite")
                 .build()
 
         customObjectDetectorOptions =
