@@ -18,9 +18,13 @@ import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
+import com.google.mlkit.vision.text.Text
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
 import java.io.IOException
 
 class ObjectDetectMlKitActivity : AppCompatActivity() {
+    private lateinit var textRecognizer: TextRecognizer
     private val binding: ActivityObjectDetectMlKitBinding by lazy {
         ActivityObjectDetectMlKitBinding.inflate(layoutInflater)
     }
@@ -50,6 +54,8 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
         objectDetector =
             ObjectDetection.getClient(customObjectDetectorOptions)
 
+        textRecognizer = TextRecognition.getClient()
+
         onClickListener()
     }
 
@@ -60,7 +66,26 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
 
         binding.detect.setOnClickListener {
             analyzeObjects()
+            analyzeText()
         }
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun analyzeText() {
+        binding.textView1.text = ""
+        val image = InputImage.fromFilePath(applicationContext, imageUri!!)
+        textRecognizer.process(image)
+            .addOnSuccessListener { visionText ->
+                setTextRect(visionText)
+                for (block in visionText.textBlocks) {
+                    val blockText = block.text
+
+                    val result = "$blockText \n\n"
+
+                    binding.textView1.text = binding.textView1.text.toString() + result
+                }
+            }
+
     }
 
     @SuppressLint("SetTextI18n")
@@ -106,6 +131,25 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
             paint.style = Paint.Style.STROKE
             canvas.drawRect(boundingBox, paint)
             binding.imageView.setImageBitmap(mutableBitmap)
+        }
+
+    }
+
+    private fun setTextRect(results: Text) {
+        val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+        val mutableBitmap = imageBitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutableBitmap)
+
+        for (detectedObject in results.textBlocks) {
+            val boundingBox = detectedObject.boundingBox
+            boundingBox?.let {
+                val paint = Paint()
+                paint.color = Color.BLUE
+                paint.style = Paint.Style.STROKE
+                canvas.drawRect(it, paint)
+                binding.imageView.setImageBitmap(mutableBitmap)
+            }
+
         }
 
     }

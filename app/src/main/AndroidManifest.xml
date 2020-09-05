@@ -9,7 +9,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".tflite.ObjectDetectTFLiteActivity"></activity>
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
+        <activity android:name=".labeling.ImageLabelingMlKitActivity"/>
+        <activity android:name=".tflite.ObjectDetectTFLiteActivity" />
         <activity android:name=".mlkit.ObjectDetectMlKitActivity" />
         <activity android:name=".MainActivity">
             <intent-filter>

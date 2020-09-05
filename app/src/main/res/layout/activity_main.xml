@@ -10,6 +10,12 @@
     android:padding="16dp">
 
     <Button
+        android:id="@+id/labeling"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Image Labeling"/>
+
+    <Button
         android:id="@+id/mlKit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

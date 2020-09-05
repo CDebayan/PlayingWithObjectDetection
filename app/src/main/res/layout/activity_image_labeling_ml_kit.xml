@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".mlkit.ObjectDetectMlKitActivity">
+    tools:context=".labeling.ImageLabelingMlKitActivity">
 
     <ImageView
         android:id="@+id/imageView"
@@ -30,26 +30,11 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/guideline">
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/textView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/textView"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                tools:text="TextView" />
-            <TextView
-                android:id="@+id/textView1"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                tools:text="TextView" />
-        </LinearLayout>
-
-
+            tools:text="TextView" />
     </ScrollView>
 
 
@@ -81,6 +66,5 @@
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toEndOf="@+id/choose"
         tools:ignore="HardcodedText" />
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>

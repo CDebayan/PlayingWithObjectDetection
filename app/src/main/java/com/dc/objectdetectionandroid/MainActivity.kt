@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import com.dc.objectdetectionandroid.databinding.ActivityMainBinding
+import com.dc.objectdetectionandroid.labeling.ImageLabelingMlKitActivity
 import com.dc.objectdetectionandroid.mlkit.ObjectDetectMlKitActivity
 import com.dc.objectdetectionandroid.tflite.ObjectDetectTFLiteActivity
 
@@ -15,6 +16,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
 
+
+        binding.labeling.setOnClickListener {
+            startActivity(Intent(this, ImageLabelingMlKitActivity::class.java))
+        }
 
         binding.mlKit.setOnClickListener {
             startActivity(Intent(this, ObjectDetectMlKitActivity::class.java))

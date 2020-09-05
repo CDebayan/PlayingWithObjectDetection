@@ -81,14 +81,16 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
             binding.textView.text = ""
             val recognitionList = detector?.recognizeImage(resizedBitmap)
             recognitionList?.let {
-                setRect(it)
+                //setRect(it)
                 for (recognition in it) {
-                    val title = recognition.title
-                    val confidence = recognition.confidence
+                    if (recognition.confidence >= 0.50) {
+                        val title = recognition.title
+                        val confidence = recognition.confidence
 
-                    val result = "$title  $confidence \n\n"
+                        val result = "$title  $confidence \n\n"
 
-                    binding.textView.text = binding.textView.text.toString() + result
+                        binding.textView.text = binding.textView.text.toString() + result
+                    }
                 }
             }
 
