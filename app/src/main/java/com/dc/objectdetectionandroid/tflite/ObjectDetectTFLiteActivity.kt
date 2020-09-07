@@ -1,11 +1,8 @@
 package com.dc.objectdetectionandroid.tflite
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Intent
-import android.content.res.AssetFileDescriptor
 import android.graphics.*
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -13,18 +10,13 @@ import androidx.appcompat.app.AppCompatActivity
 import com.dc.objectdetectionandroid.databinding.ActivityObjectDetectTFLiteBinding
 import com.dc.objectdetectionandroid.tflite.classifier.Classifier
 import com.dc.objectdetectionandroid.tflite.classifier.TFLiteObjectDetectionAPIModel
-import org.tensorflow.lite.Interpreter
-import java.io.BufferedReader
-import java.io.FileInputStream
-import java.io.IOException
-import java.io.InputStreamReader
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
 
 
 class ObjectDetectTFLiteActivity : AppCompatActivity() {
+    private lateinit var textRecognizer: TextRecognizer
     private var resizedBitmap: Bitmap? = null
     private var detector: Classifier? = null
 
@@ -32,6 +24,8 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
         ActivityObjectDetectTFLiteBinding.inflate(layoutInflater)
     }
     private var imageUri: Uri? = null
+
+    private val objectList = mutableListOf<ObjectModels>()
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,7 +40,7 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
 
         //initializeInterpreter(this)
         onClickListener()
-
+        textRecognizer = TextRecognition.getClient()
 
         if (intent.getStringExtra("type") == "tflite"){
              TF_OD_API_MODEL_FILE = "tf/detect.tflite"
@@ -81,19 +75,53 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
             binding.textView.text = ""
             val recognitionList = detector?.recognizeImage(resizedBitmap)
             recognitionList?.let {
-                //setRect(it)
                 for (recognition in it) {
                     if (recognition.confidence >= 0.50) {
                         val title = recognition.title
                         val confidence = recognition.confidence
 
-                        val result = "$title  $confidence \n\n"
+                        val labels = "$title  $confidence \n\n"
 
-                        binding.textView.text = binding.textView.text.toString() + result
+                        objectList.add(ObjectModels(boundingBox = recognition.location, label = labels))
                     }
                 }
+                detectText()
             }
 
+        }
+    }
+
+    private fun detectText() {
+        val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+        for (index in objectList.indices) {
+            val cropped = Bitmap.createBitmap(
+                imageBitmap,
+                objectList[index].boundingBox.left.toInt(),
+                objectList[index].boundingBox.top.toInt(),
+                objectList[index].boundingBox.width().toInt(),
+                objectList[index].boundingBox.height().toInt()
+            )
+            val croppedImage = InputImage.fromBitmap(cropped, 0)
+            textRecognizer.process(croppedImage)
+                .addOnSuccessListener { visionText ->
+                    for (block in visionText.textBlocks) {
+                        val blockText = block.text
+                        objectList[index].text = objectList[index].text + ", " + blockText
+                    }
+                    if(index == objectList.size -1){
+                        showResult()
+                    }
+                }
+        }
+
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun showResult() {
+        binding.textView.text = ""
+        for (objectModels in objectList) {
+            binding.textView.text = binding.textView.text.toString() + objectModels.label + "\n"
+            binding.textView.text = binding.textView.text.toString() + objectModels.text + "\n\n"
         }
     }
 
@@ -137,10 +165,13 @@ class ObjectDetectTFLiteActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 121) {
+            objectList.clear()
             imageUri = data?.data
             val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
             resizedBitmap = getResizedBitmap(bitmap,300)
             binding.imageView.setImageBitmap(resizedBitmap)
         }
     }
+    data class ObjectModels(val boundingBox: RectF, val label: String? = "", var text: String? = "")
 }
+

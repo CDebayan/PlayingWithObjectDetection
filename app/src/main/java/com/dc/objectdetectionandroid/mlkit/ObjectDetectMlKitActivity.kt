@@ -2,7 +2,8 @@ package com.dc.objectdetectionandroid.mlkit
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -11,14 +12,11 @@ import androidx.appcompat.app.AppCompatActivity
 import com.dc.objectdetectionandroid.databinding.ActivityObjectDetectMlKitBinding
 import com.google.mlkit.common.model.LocalModel
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
-import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
-import java.io.IOException
 
 class ObjectDetectMlKitActivity : AppCompatActivity() {
     private lateinit var textRecognizer: TextRecognizer
@@ -30,7 +28,7 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
     private lateinit var localModel: LocalModel
     private var imageUri: Uri? = null
 
-    private val objectList = mutableListOf<ObjectModels>()
+    private val objectList = mutableListOf<ObjectModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,7 +82,7 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
 
                         labels = "$labels, $text  $confidence"
                     }
-                    objectList.add(ObjectModels(boundingBox = boundingBox, label = labels))
+                    objectList.add(ObjectModel(boundingBox = boundingBox, label = labels))
                 }
                 detectText()
             }
@@ -142,9 +140,10 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
             binding.imageView.setImageURI(imageUri)
         }
     }
+    data class ObjectModel(val boundingBox: Rect, val label: String? = "", var text: String? = "")
 }
 
-data class ObjectModels(val boundingBox: Rect, val label: String? = "", var text: String? = "")
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
