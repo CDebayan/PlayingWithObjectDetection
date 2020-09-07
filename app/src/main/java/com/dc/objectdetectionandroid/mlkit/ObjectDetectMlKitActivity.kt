@@ -2,10 +2,7 @@ package com.dc.objectdetectionandroid.mlkit
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
+import android.graphics.*
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -32,6 +29,8 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
     private lateinit var customObjectDetectorOptions: CustomObjectDetectorOptions
     private lateinit var localModel: LocalModel
     private var imageUri: Uri? = null
+
+    private val objectList = mutableListOf<ObjectModels>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,94 +64,68 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
         }
 
         binding.detect.setOnClickListener {
-            analyzeObjects()
-            analyzeText()
+            detect()
         }
     }
 
-    @SuppressLint("SetTextI18n")
-    private fun analyzeText() {
-        binding.textView1.text = ""
-        val image = InputImage.fromFilePath(applicationContext, imageUri!!)
-        textRecognizer.process(image)
-            .addOnSuccessListener { visionText ->
-                setTextRect(visionText)
-                for (block in visionText.textBlocks) {
-                    val blockText = block.text
-
-                    val result = "$blockText \n\n"
-
-                    binding.textView1.text = binding.textView1.text.toString() + result
-                }
-            }
-
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun analyzeObjects() {
-        binding.textView.text = ""
-
+    private fun detect() {
         try {
-            val image = InputImage.fromFilePath(applicationContext, imageUri!!)
-            objectDetector.process(image).addOnFailureListener {
+            val inputImage = InputImage.fromFilePath(applicationContext, imageUri!!)
+            objectDetector.process(inputImage).addOnFailureListener {
                 Log.d("objectTest", it.message.toString())
             }.addOnSuccessListener { results ->
-                setRect(results)
                 for (detectedObject in results) {
                     Log.d("objectTest", detectedObject.toString())
                     val boundingBox = detectedObject.boundingBox
-                    val trackingId = detectedObject.trackingId
+                    var labels = ""
                     for (label in detectedObject.labels) {
                         val text = label.text
                         val confidence = label.confidence
 
-                        val result = "$text  $confidence \n\n"
+                        labels = "$labels, $text  $confidence"
+                    }
+                    objectList.add(ObjectModels(boundingBox = boundingBox, label = labels))
+                }
+                detectText()
+            }
+        } catch (e: Exception) {
+        }
+    }
 
-                        binding.textView.text = binding.textView.text.toString() + result
-
+    private fun detectText() {
+        val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+        for (index in objectList.indices) {
+            val cropped = Bitmap.createBitmap(
+                imageBitmap,
+                objectList[index].boundingBox.left,
+                objectList[index].boundingBox.top,
+                objectList[index].boundingBox.width(),
+                objectList[index].boundingBox.height()
+            )
+            val croppedImage = InputImage.fromBitmap(cropped, 0)
+            textRecognizer.process(croppedImage)
+                .addOnSuccessListener { visionText ->
+                    for (block in visionText.textBlocks) {
+                        val blockText = block.text
+                        objectList[index].text = objectList[index].text + ", " + blockText
+                    }
+                    if(index == objectList.size -1){
+                        showResult()
                     }
                 }
-            }
-        } catch (e: IOException) {
-            e.printStackTrace()
         }
 
     }
 
-    private fun setRect(results: MutableList<DetectedObject>) {
-        val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
-        val mutableBitmap = imageBitmap.copy(Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(mutableBitmap)
-
-        for (detectedObject in results) {
-            val boundingBox = detectedObject.boundingBox
-            val paint = Paint()
-            paint.color = Color.RED
-            paint.style = Paint.Style.STROKE
-            canvas.drawRect(boundingBox, paint)
-            binding.imageView.setImageBitmap(mutableBitmap)
+    @SuppressLint("SetTextI18n")
+    private fun showResult() {
+        binding.textView.text = ""
+        for (objectModels in objectList) {
+            binding.textView.text = binding.textView.text.toString() + objectModels.label + "\n"
+            binding.textView.text = binding.textView.text.toString() + objectModels.text + "\n\n"
         }
-
     }
 
-    private fun setTextRect(results: Text) {
-        val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
-        val mutableBitmap = imageBitmap.copy(Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(mutableBitmap)
-
-        for (detectedObject in results.textBlocks) {
-            val boundingBox = detectedObject.boundingBox
-            boundingBox?.let {
-                val paint = Paint()
-                paint.color = Color.BLUE
-                paint.style = Paint.Style.STROKE
-                canvas.drawRect(it, paint)
-                binding.imageView.setImageBitmap(mutableBitmap)
-            }
-
-        }
-
-    }
 
     private fun openGallery() {
         val intent = Intent()
@@ -164,8 +137,118 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 121) {
+            objectList.clear()
             imageUri = data?.data
             binding.imageView.setImageURI(imageUri)
         }
     }
 }
+
+data class ObjectModels(val boundingBox: Rect, val label: String? = "", var text: String? = "")
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//@SuppressLint("SetTextI18n")
+//private fun analyzeText() {
+//    binding.textView1.text = ""
+//    val image = InputImage.fromFilePath(applicationContext, imageUri!!)
+//    textRecognizer.process(image)
+//        .addOnSuccessListener { visionText ->
+//            //setTextRect(visionText)
+//            for (block in visionText.textBlocks) {
+//                val blockText = block.text
+//
+//                val result = "$blockText \n\n"
+//
+//                binding.textView1.text = binding.textView1.text.toString() + result
+//            }
+//        }
+//
+//}
+//
+//@SuppressLint("SetTextI18n")
+//private fun analyzeObjects() {
+//    binding.textView.text = ""
+//
+//    try {
+//        val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+//        val image = InputImage.fromFilePath(applicationContext, imageUri!!)
+//        objectDetector.process(image).addOnFailureListener {
+//            Log.d("objectTest", it.message.toString())
+//        }.addOnSuccessListener { results ->
+//            //setRect(results)
+//            for (detectedObject in results) {
+//                Log.d("objectTest", detectedObject.toString())
+//                val boundingBox = detectedObject.boundingBox
+//                val trackingId = detectedObject.trackingId
+//                for (label in detectedObject.labels) {
+//                    val text = label.text
+//                    val confidence = label.confidence
+//
+//                    val result = "$text  $confidence \n"
+//
+//                    binding.textView.text = binding.textView.text.toString() + result
+//
+//                }
+//                val cropped = Bitmap.createBitmap(imageBitmap,boundingBox.left,boundingBox.top,boundingBox.width(),boundingBox.height())
+//                val croppedImage = InputImage.fromBitmap(cropped, 0)
+//                val a = textRecognizer.process(croppedImage).result
+////                        .addOnSuccessListener { visionText ->
+////                            //setTextRect(visionText)
+////                            for (block in visionText.textBlocks) {
+////                                val blockText = block.text
+////
+////                                val result = "$blockText \n"
+////
+////                                binding.textView.text = binding.textView.text.toString() + result
+////                            }
+////                        }
+//
+//                binding.textView.text = binding.textView.text.toString() + "\n\n"
+//            }
+//        }
+//    } catch (e: IOException) {
+//        e.printStackTrace()
+//    }
+//
+//}
+//
+//private fun setRect(results: MutableList<DetectedObject>) {
+//    val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+//    val mutableBitmap = imageBitmap.copy(Bitmap.Config.ARGB_8888, true)
+//    val canvas = Canvas(mutableBitmap)
+//
+//    for (detectedObject in results) {
+//        val boundingBox = detectedObject.boundingBox
+//
+//        val a = Bitmap.createBitmap(imageBitmap,boundingBox.left,boundingBox.top,boundingBox.width(),boundingBox.height())
+//
+//        val paint = Paint()
+//        paint.color = Color.RED
+//        paint.style = Paint.Style.STROKE
+//        canvas.drawRect(boundingBox, paint)
+//        binding.imageView.setImageBitmap(a)
+//    }
+//
+//}
+//
+//private fun setTextRect(results: Text) {
+//    val imageBitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, imageUri)
+//    val mutableBitmap = imageBitmap.copy(Bitmap.Config.ARGB_8888, true)
+//    val canvas = Canvas(mutableBitmap)
+//
+//    for (detectedObject in results.textBlocks) {
+//        val boundingBox = detectedObject.boundingBox
+//        boundingBox?.let {
+//            val paint = Paint()
+//            paint.color = Color.BLUE
+//            paint.style = Paint.Style.STROKE
+//            canvas.drawRect(it, paint)
+//            binding.imageView.setImageBitmap(mutableBitmap)
+//        }
+//
+//    }
+//
+//}
