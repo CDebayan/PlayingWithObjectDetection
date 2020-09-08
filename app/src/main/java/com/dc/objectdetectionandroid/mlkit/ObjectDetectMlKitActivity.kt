@@ -122,6 +122,8 @@ class ObjectDetectMlKitActivity : AppCompatActivity() {
             binding.textView.text = binding.textView.text.toString() + objectModels.label + "\n"
             binding.textView.text = binding.textView.text.toString() + objectModels.text + "\n\n"
         }
+
+        Log.d("resDC",binding.textView.text.toString())
     }
 
 
